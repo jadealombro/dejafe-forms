@@ -15,10 +15,11 @@
 			if ( ! wrap ) {
 				return;
 			}
-			var input = wrap.querySelector( 'input, textarea' );
 			var error = wrap.querySelector( '.dejafe-form__error' );
 			wrap.classList.toggle( 'has-error', !! message );
-			input.setAttribute( 'aria-invalid', message ? 'true' : 'false' );
+			wrap.querySelectorAll( 'input, textarea, select' ).forEach( function ( input ) {
+				input.setAttribute( 'aria-invalid', message ? 'true' : 'false' );
+			} );
 			error.textContent = message || '';
 			error.hidden = ! message;
 		}
@@ -31,12 +32,26 @@
 		function clientCheck() {
 			var first = null;
 			form.querySelectorAll( '[data-field]' ).forEach( function ( wrap ) {
-				var input = wrap.querySelector( 'input, textarea' );
+				var type = wrap.dataset.type;
+				var inputs = wrap.querySelectorAll( 'input, textarea, select' );
+				var input = inputs[ 0 ];
+				var required = wrap.querySelector( '[required]' );
 				var message = '';
-				if ( input.required && ! input.value.trim() ) {
+				if ( type === 'radio' ) {
+					var picked = wrap.querySelector( 'input:checked' );
+					if ( required && ! picked ) {
+						message = 'Required';
+					}
+				} else if ( type === 'checkbox' ) {
+					if ( required && ! input.checked ) {
+						message = 'Please tick this box';
+					}
+				} else if ( required && ! input.value.trim() ) {
 					message = 'Required';
-				} else if ( input.type === 'email' && input.value && ! input.checkValidity() ) {
+				} else if ( type === 'email' && input.value && ! input.checkValidity() ) {
 					message = 'Check the email';
+				} else if ( type === 'date' && input.value && ! input.checkValidity() ) {
+					message = 'Check the date';
 				}
 				setError( wrap.dataset.field, message );
 				if ( message && ! first ) {
@@ -49,12 +64,15 @@
 			return ! first;
 		}
 
-		form.addEventListener( 'input', function ( event ) {
+		function clearOnChange( event ) {
 			var wrap = event.target.closest( '[data-field]' );
 			if ( wrap && wrap.classList.contains( 'has-error' ) ) {
 				setError( wrap.dataset.field, '' );
 			}
-		} );
+		}
+
+		form.addEventListener( 'input', clearOnChange );
+		form.addEventListener( 'change', clearOnChange );
 
 		form.addEventListener( 'submit', function ( event ) {
 			event.preventDefault();

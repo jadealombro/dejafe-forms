@@ -1,6 +1,6 @@
 <?php
 /**
- * Settings: entry storage and retention, Turnstile keys, sender details, test email.
+ * Settings: default after-submit behaviour, entry storage and retention, Turnstile keys, sender details, test email.
  *
  * @package dejafe-forms
  */
@@ -20,6 +20,9 @@ function dejafe_forms_defaults() {
 		'turnstile_secret_key' => '',
 		'from_name'            => '',
 		'from_email'           => '',
+		'success_type'         => 'message',
+		'success_message'      => __( 'Thank you, {first_name}. Your message has been sent.', 'dejafe-forms' ),
+		'success_page'         => 0,
 	);
 }
 
@@ -73,6 +76,9 @@ function dejafe_forms_sanitize_settings( $input ) {
 		'turnstile_secret_key' => sanitize_text_field( $input['turnstile_secret_key'] ?? '' ),
 		'from_name'            => sanitize_text_field( $input['from_name'] ?? '' ),
 		'from_email'           => sanitize_email( $input['from_email'] ?? '' ),
+		'success_type'         => 'page' === ( $input['success_type'] ?? '' ) ? 'page' : 'message',
+		'success_message'      => sanitize_textarea_field( $input['success_message'] ?? '' ),
+		'success_page'         => absint( $input['success_page'] ?? 0 ),
 	);
 	// Keep the stored secret when the field is left blank.
 	if ( '' === $clean['turnstile_secret_key'] ) {
@@ -123,6 +129,43 @@ function dejafe_forms_settings_page() {
 
 		<form method="post" action="options.php">
 			<?php settings_fields( 'dejafe_forms' ); ?>
+
+			<h2><?php esc_html_e( 'After submitting', 'dejafe-forms' ); ?></h2>
+			<p><?php esc_html_e( 'The default for every form. A form can choose its own in the block settings.', 'dejafe-forms' ); ?></p>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Show', 'dejafe-forms' ); ?></th>
+					<td>
+						<fieldset>
+							<label><input type="radio" name="dejafe_forms_settings[success_type]" value="message" <?php checked( $s['success_type'], 'message' ); ?>> <?php esc_html_e( 'A thank-you message', 'dejafe-forms' ); ?></label><br>
+							<label><input type="radio" name="dejafe_forms_settings[success_type]" value="page" <?php checked( $s['success_type'], 'page' ); ?>> <?php esc_html_e( 'A thank-you page', 'dejafe-forms' ); ?></label>
+						</fieldset>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="dejafe-success-page"><?php esc_html_e( 'Thank-you page', 'dejafe-forms' ); ?></label></th>
+					<td>
+						<?php
+						wp_dropdown_pages(
+							array(
+								'name'              => 'dejafe_forms_settings[success_page]',
+								'id'                => 'dejafe-success-page',
+								'selected'          => (int) $s['success_page'],
+								'show_option_none'  => esc_html__( 'Select a page', 'dejafe-forms' ),
+								'option_none_value' => '0',
+							)
+						);
+						?>
+					</td>
+				</tr>
+				<tr>
+					<th scope="row"><label for="dejafe-success-message"><?php esc_html_e( 'Thank-you message', 'dejafe-forms' ); ?></label></th>
+					<td>
+						<textarea id="dejafe-success-message" class="large-text" rows="3" name="dejafe_forms_settings[success_message]"><?php echo esc_textarea( $s['success_message'] ); ?></textarea>
+						<p class="description"><?php esc_html_e( 'Also shown if the thank-you page is unavailable. Tags: {name}, {site_name} and any field key, e.g. {first_name}.', 'dejafe-forms' ); ?></p>
+					</td>
+				</tr>
+			</table>
 
 			<h2><?php esc_html_e( 'Saved entries', 'dejafe-forms' ); ?></h2>
 			<table class="form-table" role="presentation">

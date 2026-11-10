@@ -3,6 +3,8 @@
 A lightweight contact form block for WordPress, built by [Dejafe](https://dejafe.dev/).
 
 - **Contact form block** with settings in the block sidebar: recipient, subject, thank-you message or redirect page, and a confirmation email to the visitor.
+- **Custom fields:** every field is its own block, so each site can have its own form.
+- **Site-wide default** for what happens after submitting (message or thank-you page), which any form can override.
 - **Spam protection:** Cloudflare Turnstile, a honeypot field, a minimum fill time and a per-visitor rate limit.
 - **Entries backup** under *Form entries* (admins only), deleted automatically after a set number of days.
 - **SMTP delivery** (e.g. Mailgun) configured in `wp-config.php`.
@@ -20,9 +22,19 @@ If this repository is private, each site also needs a fine-grained GitHub token 
 define( 'DEJAFE_FORMS_GITHUB_TOKEN', 'github_pat_...' );
 ```
 
+## Build a form
+
+Add the *Contact form* block. It starts with First Name, Last Name, Email, Phone Number and Message. Each of these is a *Form field* block: click one to change it, drag to reorder, or use the + button to add another.
+
+Field settings: type (Text, Email, Phone, Paragraph, Dropdown, Multiple choice, Checkbox, Date), label, required, full or half width, placeholder and, for Dropdown and Multiple choice, the options (one per line). Two half-width fields in a row sit side by side; on phones every field is full width.
+
+**Email tags.** Every field has a key built from its label (*Preferred Day* becomes `{preferred_day}`), shown under *Email tag* in the field settings. Use the tags in the subject, the thank-you message and the confirmation email, along with `{name}` (the sender's name, or their email when there's no name field) and `{site_name}`. Paragraph fields never appear in anything the visitor sees, since they can hold sensitive details. The confirmation email goes to the first Email field.
+
+Forms made with 1.0 keep working as they are. Open the page in the editor to see their fields as blocks.
+
 ## Configure
 
-*Form entries > Settings*: entry backup and retention, Turnstile keys, sender name and address, test email.
+*Form entries > Settings*: the default thank-you message or page, entry backup and retention, Turnstile keys, sender name and address, test email.
 
 Mail through Mailgun (or any SMTP service), in `wp-config.php`:
 

@@ -1,0 +1,63 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "dejafe/field",
+	"version": "1.1.0",
+	"title": "Form field",
+	"category": "widgets",
+	"icon": "edit-large",
+	"description": "One field of a contact form.",
+	"parent": [
+		"dejafe/contact-form"
+	],
+	"textdomain": "dejafe-forms",
+	"attributes": {
+		"type": {
+			"type": "string",
+			"enum": [
+				"text",
+				"email",
+				"tel",
+				"textarea",
+				"select",
+				"radio",
+				"checkbox",
+				"date"
+			],
+			"default": "text"
+		},
+		"label": {
+			"type": "string",
+			"default": ""
+		},
+		"name": {
+			"type": "string",
+			"default": ""
+		},
+		"required": {
+			"type": "boolean",
+			"default": false
+		},
+		"width": {
+			"type": "string",
+			"enum": [
+				"full",
+				"half"
+			],
+			"default": "full"
+		},
+		"placeholder": {
+			"type": "string",
+			"default": ""
+		},
+		"options": {
+			"type": "string",
+			"default": ""
+		}
+	},
+	"supports": {
+		"html": false,
+		"reusable": false
+	},
+	"editorScript": "file:./editor.js"
+}

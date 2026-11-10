@@ -2,17 +2,20 @@
 	"$schema": "https://schemas.wp.org/trunk/block.json",
 	"apiVersion": 3,
 	"name": "dejafe/contact-form",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"title": "Contact form",
 	"category": "widgets",
 	"icon": "email-alt",
-	"description": "Contact form with spam protection, email notification, visitor confirmation and an entries backup.",
+	"description": "Contact form with spam protection, email notification, visitor confirmation and an entries backup. Each field is its own block.",
 	"keywords": [
 		"form",
 		"contact",
 		"email"
 	],
 	"textdomain": "dejafe-forms",
+	"allowedBlocks": [
+		"dejafe/field"
+	],
 	"attributes": {
 		"formId": {
 			"type": "string",
@@ -24,7 +27,7 @@
 		},
 		"subject": {
 			"type": "string",
-			"default": "New message from {first_name} {last_name}"
+			"default": "New message from {name}"
 		},
 		"submitLabel": {
 			"type": "string",
@@ -37,10 +40,11 @@
 		"successType": {
 			"type": "string",
 			"enum": [
+				"default",
 				"message",
 				"page"
 			],
-			"default": "message"
+			"default": "default"
 		},
 		"successMessage": {
 			"type": "string",

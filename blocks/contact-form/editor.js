@@ -10,18 +10,18 @@
 	var useSelect = wp.data.useSelect;
 	var __ = wp.i18n.__;
 
-	var TAGS = '{first_name} {last_name} {email} {phone} {site_name}';
-
-	function field( label, type ) {
-		return el(
-			'div',
-			{ className: 'dejafe-form__field' },
-			el( 'span', { className: 'dejafe-form__label' }, label ),
-			type === 'textarea'
-				? el( 'textarea', { className: 'dejafe-form__input', disabled: true, rows: 5 } )
-				: el( 'input', { className: 'dejafe-form__input', type: type, disabled: true } )
-		);
-	}
+	var FIELD_TEMPLATE = function ( showPhone ) {
+		var t = [
+			[ 'dejafe/field', { name: 'first_name', label: __( 'First Name', 'dejafe-forms' ), required: true, width: 'half' } ],
+			[ 'dejafe/field', { name: 'last_name', label: __( 'Last Name', 'dejafe-forms' ), width: 'half' } ],
+			[ 'dejafe/field', { name: 'email', type: 'email', label: __( 'Email', 'dejafe-forms' ), required: true } ],
+		];
+		if ( showPhone !== false ) {
+			t.push( [ 'dejafe/field', { name: 'phone', type: 'tel', label: __( 'Phone Number', 'dejafe-forms' ) } ] );
+		}
+		t.push( [ 'dejafe/field', { name: 'message', type: 'textarea', label: __( 'Message', 'dejafe-forms' ), required: true } ] );
+		return t;
+	};
 
 	wp.blocks.registerBlockType( 'dejafe/contact-form', {
 		edit: function ( props ) {
@@ -33,6 +33,15 @@
 					set( { formId: 'f' + props.clientId.replace( /-/g, '' ).slice( 0, 10 ) } );
 				}
 			}, [] );
+
+			var fieldKeys = useSelect( function ( select ) {
+				var key = window.dejafeFormsKeyFromLabel || function ( v ) { return v; };
+				return select( 'core/block-editor' ).getBlocks( props.clientId ).map( function ( b ) {
+					return { key: key( b.attributes.name || b.attributes.label || b.attributes.type ), type: b.attributes.type };
+				} );
+			}, [ props.clientId ] );
+			var allTags = [ '{name}' ].concat( fieldKeys.map( function ( f ) { return '{' + f.key + '}'; } ) ).concat( [ '{site_name}' ] ).join( ' ' );
+			var shortTags = [ '{name}' ].concat( fieldKeys.filter( function ( f ) { return f.type !== 'textarea'; } ).map( function ( f ) { return '{' + f.key + '}'; } ) ).concat( [ '{site_name}' ] ).join( ' ' );
 
 			var pages = useSelect( function ( select ) {
 				return select( 'core' ).getEntityRecords( 'postType', 'page', { per_page: 100, status: 'publish', _fields: 'id,title' } );
@@ -59,7 +68,7 @@
 					} ),
 					el( c.TextControl, {
 						label: __( 'Subject', 'dejafe-forms' ),
-						help: __( 'Tags: ', 'dejafe-forms' ) + TAGS,
+						help: __( 'Tags: ', 'dejafe-forms' ) + allTags,
 						value: a.subject,
 						onChange: function ( v ) { set( { subject: v } ); },
 					} )
@@ -70,6 +79,7 @@
 					el( c.RadioControl, {
 						selected: a.successType,
 						options: [
+							{ label: __( 'Use the default from Form entries > Settings', 'dejafe-forms' ), value: 'default' },
 							{ label: __( 'Show a thank-you message', 'dejafe-forms' ), value: 'message' },
 							{ label: __( 'Go to a thank-you page', 'dejafe-forms' ), value: 'page' },
 						],
@@ -83,13 +93,15 @@
 							onChange: function ( v ) { set( { successPage: parseInt( v, 10 ) || 0 } ); },
 						} )
 						: null,
-					el( c.TextareaControl, {
-						label: a.successType === 'page' ? __( 'Message (used if the page is unavailable)', 'dejafe-forms' ) : __( 'Thank-you message', 'dejafe-forms' ),
-						help: __( 'Tag: {first_name}', 'dejafe-forms' ),
-						value: a.successMessage,
-						rows: 3,
-						onChange: function ( v ) { set( { successMessage: v } ); },
-					} )
+					a.successType === 'default'
+						? null
+						: el( c.TextareaControl, {
+							label: a.successType === 'page' ? __( 'Message (used if the page is unavailable)', 'dejafe-forms' ) : __( 'Thank-you message', 'dejafe-forms' ),
+							help: __( 'Tags: ', 'dejafe-forms' ) + shortTags,
+							value: a.successMessage,
+							rows: 3,
+							onChange: function ( v ) { set( { successMessage: v } ); },
+						} )
 				),
 				el(
 					c.PanelBody,
@@ -110,7 +122,7 @@
 							} ),
 							el( c.TextareaControl, {
 								label: __( 'Message', 'dejafe-forms' ),
-								help: __( 'Tags: ', 'dejafe-forms' ) + TAGS + '. ' + __( 'The visitor\'s own message is never included, for privacy.', 'dejafe-forms' ),
+								help: __( 'Tags: ', 'dejafe-forms' ) + shortTags + '. ' + __( 'Paragraph fields are never included, for privacy. The email goes to the first Email field.', 'dejafe-forms' ),
 								value: a.confirmationBody,
 								rows: 8,
 								onChange: function ( v ) { set( { confirmationBody: v } ); },
@@ -125,33 +137,30 @@
 						label: __( 'Button text', 'dejafe-forms' ),
 						value: a.submitLabel,
 						onChange: function ( v ) { set( { submitLabel: v } ); },
-					} ),
-					el( c.ToggleControl, {
-						label: __( 'Ask for a phone number', 'dejafe-forms' ),
-						checked: !! a.showPhone,
-						onChange: function ( v ) { set( { showPhone: v } ); },
 					} )
 				)
 			);
 
+			var blockProps = be.useBlockProps( { className: 'dejafe-form is-preview' } );
+			var innerProps = be.useInnerBlocksProps(
+				{ className: 'dejafe-form__fields' },
+				{
+					allowedBlocks: [ 'dejafe/field' ],
+					template: FIELD_TEMPLATE( a.showPhone ),
+					renderAppender: be.InnerBlocks.ButtonBlockAppender,
+				}
+			);
 			var preview = el(
 				'div',
-				be.useBlockProps( { className: 'dejafe-form is-preview' } ),
-				el(
-					'div',
-					{ className: 'dejafe-form__fields' },
-					el( 'div', { className: 'dejafe-form__row' }, field( __( 'First Name', 'dejafe-forms' ), 'text' ), field( __( 'Last Name', 'dejafe-forms' ), 'text' ) ),
-					field( __( 'Email', 'dejafe-forms' ), 'email' ),
-					a.showPhone ? field( __( 'Phone Number', 'dejafe-forms' ), 'tel' ) : null,
-					field( __( 'Message', 'dejafe-forms' ), 'textarea' ),
-					el( 'div', { className: 'dejafe-form__actions' }, el( 'span', { className: 'dejafe-form__submit wp-element-button' }, a.submitLabel ) )
-				)
+				blockProps,
+				el( 'div', innerProps ),
+				el( 'div', { className: 'dejafe-form__actions', style: { marginTop: 20 } }, el( 'span', { className: 'dejafe-form__submit wp-element-button' }, a.submitLabel ) )
 			);
 
 			return el( Fragment, null, inspector, preview );
 		},
 		save: function () {
-			return null;
+			return el( be.InnerBlocks.Content );
 		},
 	} );
 } )( window.wp );

@@ -4,7 +4,8 @@
  *
  * @package dejafe-forms
  *
- * @var array $attributes Block attributes.
+ * @var array    $attributes Block attributes.
+ * @var WP_Block $block      Block instance.
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -26,51 +27,16 @@ if ( $dejafe_site_key ) {
 	);
 }
 
-$dejafe_fields = array(
-	'first_name' => array( __( 'First Name', 'dejafe-forms' ), 'text', 'given-name', true ),
-	'last_name'  => array( __( 'Last Name', 'dejafe-forms' ), 'text', 'family-name', false ),
-	'email'      => array( __( 'Email', 'dejafe-forms' ), 'email', 'email', true ),
-	'phone'      => array( __( 'Phone Number', 'dejafe-forms' ), 'tel', 'tel', false ),
-	'message'    => array( __( 'Message', 'dejafe-forms' ), 'textarea', 'off', true ),
-);
-
-$dejafe_field = function ( $name ) use ( $dejafe_fields, $dejafe_uid ) {
-	list( $label, $type, $autocomplete, $required ) = $dejafe_fields[ $name ];
-	$id   = $dejafe_uid . '-' . $name;
-	$attr = sprintf(
-		'id="%1$s" name="%2$s" class="dejafe-form__input" autocomplete="%3$s"%4$s aria-describedby="%1$s-error"',
-		esc_attr( $id ),
-		esc_attr( $name ),
-		esc_attr( $autocomplete ),
-		$required ? ' required aria-required="true"' : ''
-	);
-	$html  = '<div class="dejafe-form__field" data-field="' . esc_attr( $name ) . '">';
-	$html .= '<div class="dejafe-form__label-row">';
-	$html .= '<label class="dejafe-form__label" for="' . esc_attr( $id ) . '">' . esc_html( $label ) . ( $required ? '' : ' <span class="dejafe-form__optional">' . esc_html__( '(optional)', 'dejafe-forms' ) . '</span>' ) . '</label>';
-	$html .= '<span class="dejafe-form__error" id="' . esc_attr( $id ) . '-error" hidden></span>';
-	$html .= '</div>';
-	if ( 'textarea' === $type ) {
-		$html .= '<textarea ' . $attr . ' rows="5" maxlength="5000"></textarea>';
-	} else {
-		$html .= '<input type="' . esc_attr( $type ) . '" ' . $attr . ( 'tel' === $type ? '' : ' maxlength="100"' ) . '>';
-	}
-	$html .= '</div>';
-	return $html;
-};
+$dejafe_fields = dejafe_forms_form_fields( $block->parsed_block['innerBlocks'] ?? array(), $attributes );
 ?>
 <form <?php echo get_block_wrapper_attributes( array( 'class' => 'dejafe-form' ) ); // phpcs:ignore WordPress.Security.EscapeOutput ?> method="post" action="<?php echo esc_url( rest_url( 'dejafe-forms/v1/submit' ) ); ?>" data-dejafe-form novalidate>
 	<input type="hidden" name="post_id" value="<?php echo esc_attr( $dejafe_post_id ); ?>">
 	<input type="hidden" name="form_id" value="<?php echo esc_attr( $attributes['formId'] ); ?>">
 	<div class="dejafe-form__fields">
-		<div class="dejafe-form__row">
-			<?php echo $dejafe_field( 'first_name' ) . $dejafe_field( 'last_name' ); // phpcs:ignore WordPress.Security.EscapeOutput ?>
-		</div>
 		<?php
-		echo $dejafe_field( 'email' ); // phpcs:ignore WordPress.Security.EscapeOutput
-		if ( ! empty( $attributes['showPhone'] ) ) {
-			echo $dejafe_field( 'phone' ); // phpcs:ignore WordPress.Security.EscapeOutput
+		foreach ( $dejafe_fields as $dejafe_f ) {
+			echo dejafe_forms_render_field( $dejafe_f, $dejafe_uid ); // phpcs:ignore WordPress.Security.EscapeOutput
 		}
-		echo $dejafe_field( 'message' ); // phpcs:ignore WordPress.Security.EscapeOutput
 		?>
 		<div class="dejafe-form__hp" aria-hidden="true">
 			<label for="<?php echo esc_attr( $dejafe_uid ); ?>-website"><?php esc_html_e( 'Leave this field empty', 'dejafe-forms' ); ?></label>

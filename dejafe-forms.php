@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name:       Dejafe Forms
- * Description:       Lightweight contact form block with Cloudflare Turnstile spam protection, email notifications and confirmations, SMTP delivery (e.g. Mailgun) and an entries backup with automatic deletion.
- * Version:           1.0.0
+ * Description:       Lightweight contact form block with custom fields, Cloudflare Turnstile spam protection, email notifications and confirmations, SMTP delivery (e.g. Mailgun) and an entries backup with automatic deletion.
+ * Version:           1.1.0
  * Requires at least: 6.6
  * Requires PHP:      7.4
  * Author:            Dejafe
@@ -16,12 +16,13 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'DEJAFE_FORMS_VERSION', '1.0.0' );
+define( 'DEJAFE_FORMS_VERSION', '1.1.0' );
 define( 'DEJAFE_FORMS_FILE', __FILE__ );
 define( 'DEJAFE_FORMS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DEJAFE_FORMS_URL', plugin_dir_url( __FILE__ ) );
 
 require_once DEJAFE_FORMS_DIR . 'includes/settings.php';
+require_once DEJAFE_FORMS_DIR . 'includes/fields.php';
 require_once DEJAFE_FORMS_DIR . 'includes/entries.php';
 require_once DEJAFE_FORMS_DIR . 'includes/mailer.php';
 require_once DEJAFE_FORMS_DIR . 'includes/turnstile.php';
@@ -32,6 +33,7 @@ add_action(
 	'init',
 	function () {
 		register_block_type( DEJAFE_FORMS_DIR . 'blocks/contact-form' );
+		register_block_type( DEJAFE_FORMS_DIR . 'blocks/field' );
 	}
 );
 

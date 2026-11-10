@@ -56,29 +56,55 @@ add_action(
 /**
  * Save a submission.
  *
- * @param array $fields  Sanitized fields.
+ * @param array $fields  Form fields.
+ * @param array $values  Sanitized values keyed by field key.
+ * @param array $sender  Name, email and phone from dejafe_forms_sender().
  * @param int   $post_id Page the form was on.
  * @return int Entry ID or 0.
  */
-function dejafe_forms_save_entry( $fields, $post_id ) {
+function dejafe_forms_save_entry( $fields, $values, $sender, $post_id ) {
 	if ( ! dejafe_forms_setting( 'store_entries' ) ) {
 		return 0;
 	}
-	$name = trim( $fields['first_name'] . ' ' . $fields['last_name'] );
-	$id   = wp_insert_post(
+	$id = wp_insert_post(
 		array(
 			'post_type'   => 'dejafe_entry',
 			'post_status' => 'private',
-			'post_title'  => $name ? $name : $fields['email'],
+			'post_title'  => $sender['name'] ? $sender['name'] : ( $sender['email'] ? $sender['email'] : __( 'Form entry', 'dejafe-forms' ) ),
 		),
 		true
 	);
 	if ( is_wp_error( $id ) ) {
 		return 0;
 	}
-	update_post_meta( $id, '_dejafe_fields', $fields );
+	$labels = array();
+	foreach ( $fields as $field ) {
+		$labels[ $field['key'] ] = dejafe_forms_field_label( $field );
+	}
+	update_post_meta( $id, '_dejafe_fields', $values );
+	update_post_meta( $id, '_dejafe_labels', $labels );
+	update_post_meta( $id, '_dejafe_sender', $sender );
 	update_post_meta( $id, '_dejafe_page', (int) $post_id );
 	return (int) $id;
+}
+
+/**
+ * Sender details of an entry (entries from 1.0 only have the fixed fields).
+ *
+ * @param int $id Entry ID.
+ * @return array name, email, phone.
+ */
+function dejafe_forms_entry_sender( $id ) {
+	$sender = get_post_meta( $id, '_dejafe_sender', true );
+	if ( is_array( $sender ) ) {
+		return $sender;
+	}
+	$f = (array) get_post_meta( $id, '_dejafe_fields', true );
+	return array(
+		'name'  => trim( ( $f['first_name'] ?? '' ) . ' ' . ( $f['last_name'] ?? '' ) ),
+		'email' => (string) ( $f['email'] ?? '' ),
+		'phone' => (string) ( $f['phone'] ?? '' ),
+	);
 }
 
 /* ---------- List screen ---------- */
@@ -101,14 +127,14 @@ add_filter(
 add_action(
 	'manage_dejafe_entry_posts_custom_column',
 	function ( $column, $id ) {
-		$f = (array) get_post_meta( $id, '_dejafe_fields', true );
+		$sender = dejafe_forms_entry_sender( $id );
 		switch ( $column ) {
 			case 'dejafe_email':
-				$email = $f['email'] ?? '';
+				$email = $sender['email'];
 				echo $email ? '<a href="' . esc_url( 'mailto:' . $email ) . '">' . esc_html( $email ) . '</a>' : '';
 				break;
 			case 'dejafe_phone':
-				echo esc_html( $f['phone'] ?? '' );
+				echo esc_html( $sender['phone'] );
 				break;
 			case 'dejafe_page':
 				$page = (int) get_post_meta( $id, '_dejafe_page', true );
@@ -200,23 +226,31 @@ add_action(
  */
 function dejafe_forms_entry_box( $post ) {
 	$f      = (array) get_post_meta( $post->ID, '_dejafe_fields', true );
-	$labels = array(
-		'first_name' => __( 'First name', 'dejafe-forms' ),
-		'last_name'  => __( 'Last name', 'dejafe-forms' ),
-		'email'      => __( 'Email', 'dejafe-forms' ),
-		'phone'      => __( 'Phone', 'dejafe-forms' ),
-		'message'    => __( 'Message', 'dejafe-forms' ),
-	);
+	$labels = get_post_meta( $post->ID, '_dejafe_labels', true );
+	if ( ! is_array( $labels ) ) {
+		$labels = array(
+			'first_name' => __( 'First name', 'dejafe-forms' ),
+			'last_name'  => __( 'Last name', 'dejafe-forms' ),
+			'email'      => __( 'Email', 'dejafe-forms' ),
+			'phone'      => __( 'Phone', 'dejafe-forms' ),
+			'message'    => __( 'Message', 'dejafe-forms' ),
+		);
+	}
+	$email = dejafe_forms_entry_sender( $post->ID )['email'];
 	echo '<table class="form-table" role="presentation"><tbody>';
 	foreach ( $labels as $key => $label ) {
 		if ( ! isset( $f[ $key ] ) || '' === $f[ $key ] ) {
 			continue;
 		}
-		$value = 'message' === $key ? wpautop( esc_html( $f[ $key ] ) ) : esc_html( $f[ $key ] );
-		if ( 'email' === $key ) {
-			$value = '<a href="' . esc_url( 'mailto:' . $f[ $key ] ) . '">' . esc_html( $f[ $key ] ) . '</a>';
+		$value = (string) $f[ $key ];
+		if ( $email && $value === $email ) {
+			$html = '<a href="' . esc_url( 'mailto:' . $value ) . '">' . esc_html( $value ) . '</a>';
+		} elseif ( false !== strpos( $value, "\n" ) || mb_strlen( $value ) > 120 ) {
+			$html = wpautop( esc_html( $value ) );
+		} else {
+			$html = esc_html( $value );
 		}
-		echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . wp_kses_post( $value ) . '</td></tr>';
+		echo '<tr><th scope="row">' . esc_html( $label ) . '</th><td>' . wp_kses_post( $html ) . '</td></tr>';
 	}
 	echo '</tbody></table>';
 }

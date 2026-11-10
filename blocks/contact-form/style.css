@@ -1,20 +1,28 @@
 /* Dejafe Forms: structure only. Themes style the look. */
 .dejafe-form { position: relative; }
 .dejafe-form [hidden] { display: none !important; }
-.dejafe-form__fields { display: grid; gap: 20px; }
-.dejafe-form__row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.dejafe-form__field { display: grid; gap: 8px; min-width: 0; }
+.dejafe-form__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; }
+.dejafe-form__fields > * { grid-column: 1 / -1; }
+.dejafe-form__fields > .is-half { grid-column: auto; }
+.dejafe-form__field { display: grid; gap: 8px; min-width: 0; align-content: start; }
 .dejafe-form__input { box-sizing: border-box; width: 100%; font: inherit; }
 textarea.dejafe-form__input { resize: vertical; min-height: 128px; }
+select.dejafe-form__input { cursor: pointer; }
 .dejafe-form__label-row { display: flex; align-items: center; min-height: 20px; justify-content: space-between; gap: 12px; min-width: 0; }
 .dejafe-form__error { margin: 0; font-size: .875em; white-space: nowrap; text-align: right; }
+.dejafe-form__choices { display: grid; gap: 10px; }
+.dejafe-form__choice { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.dejafe-form__choice input { flex: none; width: 18px; height: 18px; margin: .15em 0 0; accent-color: currentColor; cursor: pointer; }
 .dejafe-form__status { margin: 0; }
 .dejafe-form__actions .dejafe-form__submit { display: block; width: 100%; text-align: center; cursor: pointer; }
 .dejafe-form__submit[disabled] { opacity: .7; cursor: progress; }
 .dejafe-form__hp { position: absolute !important; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .dejafe-form__turnstile:empty { display: none; }
 .dejafe-form__success:focus { outline: none; }
-.dejafe-form.is-preview .dejafe-form__input { pointer-events: none; }
+.dejafe-form.is-preview .dejafe-form__input,
+.dejafe-form.is-preview .dejafe-form__choice input { pointer-events: none; }
+.dejafe-form.is-preview .dejafe-form__fields > .block-list-appender { position: static; margin: 0; }
+.dejafe-form__editor-note { margin: 0; font-size: 13px; opacity: .8; }
 @media (max-width: 600px) {
-	.dejafe-form__row { grid-template-columns: 1fr; }
+	.dejafe-form__fields > .is-half { grid-column: 1 / -1; }
 }

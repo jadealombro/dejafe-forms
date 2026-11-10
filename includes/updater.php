@@ -4,7 +4,7 @@
  *
  * Every site checks https://github.com/jadealombro/dejafe-forms/releases/latest (cached for 6 hours)
  * and shows the update on the Plugins screen like any other plugin. Releases are built by
- * .github/workflows/release.yml when a version tag (e.g. v1.1.0) is pushed.
+ * .github/workflows/release.yml when a new version reaches the main branch.
  *
  * Private repository: add a fine-grained token with read access to this repo's contents
  * in wp-config.php: define( 'DEJAFE_FORMS_GITHUB_TOKEN', 'github_pat_...' );

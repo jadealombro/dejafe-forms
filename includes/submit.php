@@ -27,7 +27,7 @@ add_action(
  *
  * @param int    $post_id Post ID.
  * @param string $form_id Block formId.
- * @return array|null Attributes with defaults applied.
+ * @return array|null Attributes with defaults applied, plus the inner blocks under __inner.
  */
 function dejafe_forms_find_block( $post_id, $form_id ) {
 	$post = get_post( $post_id );
@@ -43,7 +43,12 @@ function dejafe_forms_find_block( $post_id, $form_id ) {
 			if ( 'dejafe/contact-form' === $block['blockName'] ) {
 				$attrs = (array) $block['attrs'];
 				if ( '' === $form_id || ( $attrs['formId'] ?? '' ) === $form_id ) {
-					$found = $attrs;
+					// Forms saved before 1.1.0 (no field blocks) had no "default" option: a missing type meant "message".
+					if ( ! isset( $attrs['successType'] ) && empty( $block['innerBlocks'] ) ) {
+						$attrs['successType'] = 'message';
+					}
+					$found            = $attrs;
+					$found['__inner'] = $block['innerBlocks'];
 					return;
 				}
 			}
@@ -73,31 +78,63 @@ function dejafe_forms_find_block( $post_id, $form_id ) {
 }
 
 /**
- * Replace {tags} in a template. Values are escaped for HTML unless $plain.
+ * Replace {tags} in a template. Values are escaped for HTML unless $plain. Unknown tags are removed.
  *
  * @param string $template Template.
- * @param array  $fields   Fields.
+ * @param array  $values   Field values keyed by field key, plus "name".
  * @param bool   $plain    Plain text (subjects).
  * @return string
  */
-function dejafe_forms_tags( $template, $fields, $plain = false ) {
-	$values = array(
-		'{first_name}' => $fields['first_name'] ?? '',
-		'{last_name}'  => $fields['last_name'] ?? '',
-		'{email}'      => $fields['email'] ?? '',
-		'{phone}'      => $fields['phone'] ?? '',
-		'{site_name}'  => wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ),
-	);
+function dejafe_forms_tags( $template, $values, $plain = false ) {
+	$map = array();
+	foreach ( $values as $key => $value ) {
+		$map[ '{' . $key . '}' ] = (string) $value;
+	}
+	$map['{site_name}'] = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
 	if ( $plain ) {
-		$values = array_map(
+		$map = array_map(
 			function ( $v ) {
 				return str_replace( array( "\r", "\n" ), ' ', $v );
 			},
-			$values
+			$map
 		);
-		return strtr( $template, $values );
+		$out = strtr( $template, $map );
+	} else {
+		$out = strtr( esc_html( $template ), array_map( 'esc_html', $map ) );
 	}
-	return strtr( esc_html( $template ), array_map( 'esc_html', $values ) );
+	$out = preg_replace( '/\{[a-z0-9_]+\}/', '', $out );
+	// Tidy what empty tags leave behind: "Thank you, ." becomes "Thank you."
+	$out = preg_replace( array( '/[ \t]+([,.!?])/', '/,([.!?])/' ), '$1', $out );
+	return $plain ? trim( preg_replace( '/[ \t]+/', ' ', $out ) ) : $out;
+}
+
+/**
+ * What happens after a successful submission: the form's own choice or the site default.
+ *
+ * @param array $attrs Form attributes.
+ * @return array type (message|page), message, page.
+ */
+function dejafe_forms_after_submit( $attrs ) {
+	if ( 'default' === ( $attrs['successType'] ?? 'default' ) ) {
+		$type    = dejafe_forms_setting( 'success_type' );
+		$message = (string) dejafe_forms_setting( 'success_message' );
+		$page    = (int) dejafe_forms_setting( 'success_page' );
+	} else {
+		$type    = $attrs['successType'];
+		$message = (string) ( $attrs['successMessage'] ?? '' );
+		$page    = (int) ( $attrs['successPage'] ?? 0 );
+	}
+	if ( '' === trim( $message ) ) {
+		$message = (string) dejafe_forms_setting( 'success_message' );
+	}
+	if ( '' === trim( $message ) ) {
+		$message = __( 'Thank you. Your message has been sent.', 'dejafe-forms' );
+	}
+	return array(
+		'type'    => 'page' === $type ? 'page' : 'message',
+		'message' => $message,
+		'page'    => $page,
+	);
 }
 
 /**
@@ -125,11 +162,12 @@ function dejafe_forms_handle_submit( WP_REST_Request $request ) {
 		return $fail( __( 'This form is no longer available. Please reload the page.', 'dejafe-forms' ), 404 );
 	}
 
-	$success_message = dejafe_forms_tags( (string) $attrs['successMessage'], array( 'first_name' => sanitize_text_field( (string) $request->get_param( 'first_name' ) ) ) );
+	$fields = dejafe_forms_form_fields( $attrs['__inner'], $attrs );
+	$after  = dejafe_forms_after_submit( $attrs );
 
 	// 1. Honeypot: bots fill every field. Pretend it worked and do nothing.
 	if ( '' !== trim( (string) $request->get_param( 'website' ) ) ) {
-		return new WP_REST_Response( array( 'success' => true, 'message' => $success_message ), 200 );
+		return new WP_REST_Response( array( 'success' => true, 'message' => esc_html( wp_strip_all_tags( preg_replace( '/\{[a-z0-9_]+\}/', '', $after['message'] ) ) ) ), 200 );
 	}
 
 	// 2. Too fast to be a person.
@@ -145,30 +183,13 @@ function dejafe_forms_handle_submit( WP_REST_Request $request ) {
 	}
 
 	// 4. Validate.
-	$fields = array(
-		'first_name' => sanitize_text_field( (string) $request->get_param( 'first_name' ) ),
-		'last_name'  => sanitize_text_field( (string) $request->get_param( 'last_name' ) ),
-		'email'      => sanitize_email( (string) $request->get_param( 'email' ) ),
-		'phone'      => sanitize_text_field( (string) $request->get_param( 'phone' ) ),
-		'message'    => sanitize_textarea_field( (string) $request->get_param( 'message' ) ),
-	);
-	$errors = array();
-	if ( '' === $fields['first_name'] ) {
-		$errors['first_name'] = __( 'Required', 'dejafe-forms' );
-	}
-	if ( ! is_email( $fields['email'] ) ) {
-		$errors['email'] = __( 'Check the email', 'dejafe-forms' );
-	}
-	if ( '' === $fields['message'] ) {
-		$errors['message'] = __( 'Required', 'dejafe-forms' );
-	}
-	if ( '' !== $fields['phone'] && ! preg_match( '/^[0-9+().\-\s]{7,25}$/', $fields['phone'] ) ) {
-		$errors['phone'] = __( 'Check the number', 'dejafe-forms' );
-	}
-	foreach ( array( 'first_name' => 100, 'last_name' => 100, 'message' => 5000 ) as $key => $max ) {
-		if ( mb_strlen( $fields[ $key ] ) > $max ) {
-			/* translators: %d: max characters. */
-			$errors[ $key ] = sprintf( __( 'Max %d characters', 'dejafe-forms' ), $max );
+	list( $values, $errors ) = dejafe_forms_read_fields( $fields, $request );
+	$sender                  = dejafe_forms_sender( $fields, $values );
+	$tags                    = array_merge( $values, array( 'name' => $sender['name'] ? $sender['name'] : $sender['email'] ) );
+	$safe_tags               = $tags; // Without paragraph fields, for anything the visitor sees.
+	foreach ( $fields as $field ) {
+		if ( 'textarea' === $field['type'] ) {
+			unset( $safe_tags[ $field['key'] ] );
 		}
 	}
 	if ( $errors ) {
@@ -186,51 +207,51 @@ function dejafe_forms_handle_submit( WP_REST_Request $request ) {
 	set_transient( $ip_key, $count + 1, 10 * MINUTE_IN_SECONDS );
 
 	// 6. Backup.
-	$entry_id = dejafe_forms_save_entry( $fields, $post_id );
+	$entry_id = dejafe_forms_save_entry( $fields, $values, $sender, $post_id );
 
 	// 7. Notification to the site owner.
 	$to = array_filter( array_map( 'trim', explode( ',', (string) $attrs['recipient'] ) ), 'is_email' );
 	if ( ! $to ) {
 		$to = array( get_option( 'admin_email' ) );
 	}
-	$name = trim( $fields['first_name'] . ' ' . $fields['last_name'] );
-	$rows = '';
-	foreach (
-		array(
-			__( 'Name', 'dejafe-forms' )  => $name,
-			__( 'Email', 'dejafe-forms' ) => $fields['email'],
-			__( 'Phone', 'dejafe-forms' ) => $fields['phone'],
-		) as $label => $value
-	) {
-		if ( '' !== $value ) {
-			$rows .= '<tr><td style="padding:6px 16px 6px 0;color:#5e6b63;vertical-align:top">' . esc_html( $label ) . '</td><td style="padding:6px 0">' . esc_html( $value ) . '</td></tr>';
+	$rows  = '';
+	$long  = '';
+	$label = 'padding:6px 16px 6px 0;color:#5e6b63;vertical-align:top';
+	foreach ( $fields as $field ) {
+		$value = (string) $values[ $field['key'] ];
+		if ( '' === $value ) {
+			continue;
 		}
+		if ( 'textarea' === $field['type'] ) {
+			$long .= '<p style="margin:20px 0 6px;color:#5e6b63">' . esc_html( dejafe_forms_field_label( $field ) ) . '</p>'
+				. '<div style="padding:14px 16px;background:#f3f5f1;border-radius:8px">' . wpautop( esc_html( $value ) ) . '</div>';
+			continue;
+		}
+		$shown = 'email' === $field['type'] ? '<a href="' . esc_url( 'mailto:' . $value ) . '">' . esc_html( $value ) . '</a>' : esc_html( $value );
+		$rows .= '<tr><td style="' . $label . '">' . esc_html( wp_trim_words( dejafe_forms_field_label( $field ), 8 ) ) . '</td><td style="padding:6px 0">' . $shown . '</td></tr>';
 	}
 	$page_title = get_the_title( $post_id );
 	$html       = '<p style="margin:0 0 16px;font-size:17px"><strong>' . esc_html__( 'New form submission', 'dejafe-forms' ) . '</strong></p>'
-		. '<table style="border-collapse:collapse;margin:0 0 20px">' . $rows . '</table>'
-		. '<p style="margin:0 0 6px;color:#5e6b63">' . esc_html__( 'Message', 'dejafe-forms' ) . '</p>'
-		. '<div style="padding:14px 16px;background:#f3f5f1;border-radius:8px">' . wpautop( esc_html( $fields['message'] ) ) . '</div>'
+		. ( $rows ? '<table style="border-collapse:collapse;margin:0">' . $rows . '</table>' : '' )
+		. $long
 		/* translators: %s: page title. */
-		. '<p style="margin:20px 0 0;font-size:13px;color:#7a857f">' . esc_html( sprintf( __( 'Sent from the "%s" page. Reply to this email to answer directly.', 'dejafe-forms' ), $page_title ) ) . '</p>';
-	$sent       = dejafe_forms_send(
-		$to,
-		dejafe_forms_tags( (string) $attrs['subject'], $fields, true ),
-		$html,
-		array( 'Reply-To: ' . ( $name ? str_replace( array( '"', "\r", "\n" ), '', $name ) . ' <' . $fields['email'] . '>' : $fields['email'] ) )
-	);
+		. '<p style="margin:20px 0 0;font-size:13px;color:#7a857f">' . esc_html( sprintf( $sender['email'] ? __( 'Sent from the "%s" page. Reply to this email to answer directly.', 'dejafe-forms' ) : __( 'Sent from the "%s" page.', 'dejafe-forms' ), $page_title ) ) . '</p>';
+	$headers    = array();
+	if ( $sender['email'] ) {
+		$headers[] = 'Reply-To: ' . ( $sender['name'] ? str_replace( array( '"', "\r", "\n", '<', '>', ',' ), '', $sender['name'] ) . ' <' . $sender['email'] . '>' : $sender['email'] );
+	}
+	$sent = dejafe_forms_send( $to, dejafe_forms_tags( (string) $attrs['subject'], $tags, true ), $html, $headers );
 	if ( $entry_id ) {
 		update_post_meta( $entry_id, '_dejafe_mail', $sent ? 'sent' : 'failed' );
 	}
 
 	// 8. Confirmation to the visitor (never repeats their message, which may be sensitive).
-	if ( ! empty( $attrs['confirmationEnabled'] ) ) {
-		$reply_to = array_values( $to )[0];
+	if ( ! empty( $attrs['confirmationEnabled'] ) && $sender['email'] ) {
 		dejafe_forms_send(
-			$fields['email'],
-			dejafe_forms_tags( (string) $attrs['confirmationSubject'], $fields, true ),
-			wpautop( dejafe_forms_tags( (string) $attrs['confirmationBody'], $fields ) ),
-			array( 'Reply-To: ' . $reply_to )
+			$sender['email'],
+			dejafe_forms_tags( (string) $attrs['confirmationSubject'], $safe_tags, true ),
+			wpautop( dejafe_forms_tags( (string) $attrs['confirmationBody'], $safe_tags ) ),
+			array( 'Reply-To: ' . array_values( $to )[0] )
 		);
 	}
 
@@ -239,9 +260,10 @@ function dejafe_forms_handle_submit( WP_REST_Request $request ) {
 	}
 
 	$redirect = '';
-	if ( 'page' === $attrs['successType'] && ! empty( $attrs['successPage'] ) && 'publish' === get_post_status( (int) $attrs['successPage'] ) ) {
-		$redirect = get_permalink( (int) $attrs['successPage'] );
+	if ( 'page' === $after['type'] && $after['page'] && 'publish' === get_post_status( $after['page'] ) ) {
+		$redirect = get_permalink( $after['page'] );
 	}
+	$success_message = dejafe_forms_tags( $after['message'], $safe_tags );
 
 	return new WP_REST_Response(
 		array(
