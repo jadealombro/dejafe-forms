@@ -56,3 +56,5 @@ Turnstile keys can also be set as `DEJAFE_TURNSTILE_SITE_KEY` and `DEJAFE_TURNST
 2. Commit and push to `main`.
 
 The *Release* workflow sees a version with no release yet, builds `dejafe-forms.zip` and publishes release `v1.1.0` with notes generated from the commits. Pushes that don't change the version are skipped. Sites pick the update up within 6 hours, or straight away via *Dashboard > Updates > Check again*.
+
+Sites need to reach both `api.wordpress.org` and `api.github.com` to see updates. WordPress only asks GitHub after its own wordpress.org check succeeds, so a site that blocks outside requests (for example with `WP_HTTP_BLOCK_EXTERNAL`) won't see new versions.
