@@ -1,0 +1,76 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "dejafe/contact-form",
+	"version": "1.0.0",
+	"title": "Contact form",
+	"category": "widgets",
+	"icon": "email-alt",
+	"description": "Contact form with spam protection, email notification, visitor confirmation and an entries backup.",
+	"keywords": [
+		"form",
+		"contact",
+		"email"
+	],
+	"textdomain": "dejafe-forms",
+	"attributes": {
+		"formId": {
+			"type": "string",
+			"default": ""
+		},
+		"recipient": {
+			"type": "string",
+			"default": ""
+		},
+		"subject": {
+			"type": "string",
+			"default": "New message from {first_name} {last_name}"
+		},
+		"submitLabel": {
+			"type": "string",
+			"default": "Submit"
+		},
+		"showPhone": {
+			"type": "boolean",
+			"default": true
+		},
+		"successType": {
+			"type": "string",
+			"enum": [
+				"message",
+				"page"
+			],
+			"default": "message"
+		},
+		"successMessage": {
+			"type": "string",
+			"default": "Thank you, {first_name}. Your message has been sent."
+		},
+		"successPage": {
+			"type": "number",
+			"default": 0
+		},
+		"confirmationEnabled": {
+			"type": "boolean",
+			"default": true
+		},
+		"confirmationSubject": {
+			"type": "string",
+			"default": "We received your message"
+		},
+		"confirmationBody": {
+			"type": "string",
+			"default": "Hi {first_name},\n\nThank you for getting in touch. Your message has been received and you'll hear back soon.\n\n{site_name}"
+		}
+	},
+	"supports": {
+		"html": false,
+		"spacing": {
+			"margin": true
+		}
+	},
+	"editorScript": "file:./editor.js",
+	"viewScript": "file:./view.js",
+	"style": "file:./style.css",
+	"render": "file:./render.php"
+}
