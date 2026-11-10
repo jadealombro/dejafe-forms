@@ -250,7 +250,7 @@ function dejafe_forms_read_fields( $fields, $request ) {
 		}
 
 		if ( $field['required'] && '' === $value && ! isset( $errors[ $key ] ) ) {
-			$errors[ $key ] = 'checkbox' === $field['type'] ? __( 'Please tick this box', 'dejafe-forms' ) : ( 'email' === $field['type'] && '' !== trim( $raw ) ? __( 'Check the email', 'dejafe-forms' ) : __( 'Required', 'dejafe-forms' ) );
+			$errors[ $key ] = 'checkbox' === $field['type'] ? __( 'Required', 'dejafe-forms' ) : ( 'email' === $field['type'] && '' !== trim( $raw ) ? __( 'Check the email', 'dejafe-forms' ) : __( 'Required', 'dejafe-forms' ) );
 		}
 		$values[ $key ] = $value;
 	}

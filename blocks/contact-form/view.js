@@ -44,7 +44,7 @@
 					}
 				} else if ( type === 'checkbox' ) {
 					if ( required && ! input.checked ) {
-						message = 'Please tick this box';
+						message = 'Required';
 					}
 				} else if ( required && ! input.value.trim() ) {
 					message = 'Required';
