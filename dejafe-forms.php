@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Dejafe Forms
  * Description:       Lightweight contact form block with custom fields, Cloudflare Turnstile spam protection, email notifications and confirmations, SMTP delivery (e.g. Mailgun) and an entries backup with automatic deletion.
- * Version:           1.1.0
+ * Version:           1.1.1
  * Requires at least: 6.6
  * Requires PHP:      7.4
  * Author:            Dejafe
@@ -16,7 +16,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'DEJAFE_FORMS_VERSION', '1.1.0' );
+define( 'DEJAFE_FORMS_VERSION', '1.1.1' );
 define( 'DEJAFE_FORMS_FILE', __FILE__ );
 define( 'DEJAFE_FORMS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DEJAFE_FORMS_URL', plugin_dir_url( __FILE__ ) );
