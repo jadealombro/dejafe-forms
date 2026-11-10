@@ -40,13 +40,7 @@ Turnstile keys can also be set as `DEJAFE_TURNSTILE_SITE_KEY` and `DEJAFE_TURNST
 
 ## Release a new version
 
-1. Bump the version in **both** places in `dejafe-forms.php`: the `Version:` header and `DEJAFE_FORMS_VERSION`.
-2. Commit and push.
-3. Tag and push the tag:
+1. Bump the version in **both** places in `dejafe-forms.php`: the `Version:` header and `DEJAFE_FORMS_VERSION` (e.g. `1.1.0`).
+2. Commit and push to `main`.
 
-   ```sh
-   git tag v1.1.0
-   git push origin v1.1.0
-   ```
-
-The *Release* workflow checks the versions match, builds `dejafe-forms.zip` and publishes the GitHub release. Sites pick it up within 6 hours, or straight away via *Dashboard > Updates > Check again*.
+The *Release* workflow sees a version with no release yet, builds `dejafe-forms.zip` and publishes release `v1.1.0` with notes generated from the commits. Pushes that don't change the version are skipped. Sites pick the update up within 6 hours, or straight away via *Dashboard > Updates > Check again*.

@@ -1,12 +1,19 @@
 name: Release
 
+# Bump the version in dejafe-forms.php and push to main: if no release exists for
+# that version yet, this builds dejafe-forms.zip and publishes release vX.Y.Z.
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -14,18 +21,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the version matches the tag
+      - name: Read the version
+        id: version
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
           HEADER=$(grep -m1 -E '^\s*\*\s*Version:' dejafe-forms.php | awk '{print $NF}')
           CONST=$(grep -m1 "DEJAFE_FORMS_VERSION'" dejafe-forms.php | sed -E "s/.*'([0-9.]+)'.*/\1/")
-          echo "tag=$TAG header=$HEADER constant=$CONST"
-          if [ "$TAG" != "$HEADER" ] || [ "$TAG" != "$CONST" ]; then
-            echo "::error::Bump the Version header and DEJAFE_FORMS_VERSION in dejafe-forms.php to $TAG before tagging."
+          echo "header=$HEADER constant=$CONST"
+          if [ "$HEADER" != "$CONST" ]; then
+            echo "::error::The Version header ($HEADER) and DEJAFE_FORMS_VERSION ($CONST) in dejafe-forms.php don't match."
             exit 1
+          fi
+          echo "version=$HEADER" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if this version is already released
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "v${{ steps.version.outputs.version }} already exists, nothing to release."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Build dejafe-forms.zip
+        if: steps.exists.outputs.skip != 'true'
         run: |
           mkdir -p build/dejafe-forms
           rsync -a --exclude-from=.distignore ./ build/dejafe-forms/
@@ -33,6 +52,11 @@ jobs:
           unzip -l dejafe-forms.zip
 
       - name: Publish the release
+        if: steps.exists.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dejafe-forms.zip --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" dejafe-forms.zip \
+            --target "$GITHUB_SHA" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --generate-notes
