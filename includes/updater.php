@@ -68,11 +68,15 @@ function dejafe_forms_latest_release( $force = false ) {
 }
 
 // Tell WordPress about new versions (works through the plugin's "Update URI" header).
+// Skipped for git checkouts (development copies): updating would replace the folder and delete .git.
 add_filter(
 	'update_plugins_github.com',
 	function ( $update, $plugin_data, $plugin_file ) {
 		if ( plugin_basename( DEJAFE_FORMS_FILE ) !== $plugin_file ) {
 			return $update;
+		}
+		if ( file_exists( DEJAFE_FORMS_DIR . '.git' ) ) {
+			return false;
 		}
 		$release = dejafe_forms_latest_release();
 		if ( ! $release || ! $release['version'] || ! $release['package'] ) {

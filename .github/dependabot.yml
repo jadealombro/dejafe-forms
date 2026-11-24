@@ -1,0 +1,8 @@
+# Keeps the GitHub Actions used by the release workflow up to date.
+# The plugin has no npm or Composer dependencies; add those ecosystems here if it ever does.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
