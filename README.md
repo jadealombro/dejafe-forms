@@ -50,6 +50,31 @@ define( 'DEJAFE_MAIL_FROM_NAME', 'Example' );
 
 Turnstile keys can also be set as `DEJAFE_TURNSTILE_SITE_KEY` and `DEJAFE_TURNSTILE_SECRET_KEY`. For local development, Cloudflare's always-pass test keys work: site key `1x00000000000000000000AA`, secret `1x0000000000000000000000000000000AA`.
 
+## Privacy
+
+What the plugin stores on the site, for the site's privacy policy:
+
+- **Form entries**, when *Store entries* is on (it is by default). Each entry keeps the fields the visitor filled in, the page the form was on, the date and whether the email was sent. Entries are private posts that only administrators can see under *Form entries*. They are deleted automatically after the number of days set under *Form entries > Settings* (90 by default, from 1 to 3650).
+- **No IP address is stored.** For the rate limit, the plugin keeps a counter under a one-way hash of the visitor's IP address for 10 minutes, then it expires.
+- **Emails.** The notification goes to the form's recipient (the site's admin email if none is set) and the confirmation to the visitor's email address. Both contain what the visitor typed, except that paragraph fields never appear in the confirmation or the thank-you message.
+- **Settings** (one option, `dejafe_forms_settings`) and a cached copy of the latest GitHub release (`dejafe_forms_release`, kept for 6 hours).
+
+Deleting the plugin removes all of this (see *Uninstall* below).
+
+## Outside services
+
+The plugin contacts these, and nothing else:
+
+| Service | When | What is sent |
+| --- | --- | --- |
+| Cloudflare Turnstile (`challenges.cloudflare.com`) | Only when Turnstile keys are set. The visitor's browser loads Cloudflare's script on pages with a form, and the site checks each submission with Cloudflare. | The Turnstile token and the visitor's IP address, for the check. Cloudflare's own privacy policy covers its script. |
+| The SMTP service set in `wp-config.php` (e.g. Mailgun) | Each email, only when `DEJAFE_SMTP_HOST` is set. Otherwise the server's own mail is used. | The emails described under *Privacy*. |
+| GitHub (`api.github.com`, `github.com`) | The update check from wp-admin, at most every 6 hours, and the zip download when updating. | Nothing about the site's visitors. The request names the plugin and its version. |
+
+## Uninstall
+
+Deactivating keeps everything and only stops the daily clean-up. **Deleting** the plugin from the Plugins screen removes its settings, every form entry, the clean-up event, the cached release and the rate-limit counters (`uninstall.php`). Forms already placed in pages stay in the page content and work again if the plugin is reinstalled. Copy any entries you need before deleting.
+
 ## Release a new version
 
 1. Bump the version in **both** places in `dejafe-forms.php`: the `Version:` header and `DEJAFE_FORMS_VERSION` (e.g. `1.1.0`).
